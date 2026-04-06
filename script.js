@@ -1,10 +1,7 @@
-// script.js - Nexus Shop Multi-Campaign với Google Sign-in
-
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DOM elements
 const loginCard = document.getElementById('loginCard');
 const appContent = document.getElementById('appContent');
 const homeView = document.getElementById('homeView');
@@ -22,7 +19,6 @@ let currentUser = null;
 let currentViewingCampaign = null;
 let campaignsUnsubscribe = null;
 
-// Helper functions
 function showToast(msg, isError = false) {
   const toast = document.createElement('div');
   toast.className = 'toast';
@@ -41,7 +37,6 @@ function escapeHtml(str) {
   });
 }
 
-// Lấy mã code riêng của user (toàn cục)
 async function getUserPaymentCode(userId) {
   const userRef = db.collection('users').doc(userId);
   const doc = await userRef.get();
@@ -51,7 +46,20 @@ async function getUserPaymentCode(userId) {
   return code;
 }
 
-// Hiển thị danh sách campaign (trang chủ)
+async function recordDeviceInfo(userId) {
+  const fp = await FingerprintJS.load();
+  const result = await fp.get();
+  const hwid = result.visitorId;
+  const ipRes = await fetch('https://api.ipify.org?format=json');
+  const ipData = await ipRes.json();
+  const ip = ipData.ip;
+  await db.collection('users').doc(userId).update({
+    hwid: hwid,
+    ip: ip,
+    lastLogin: new Date()
+  }).catch(e => console.error(e));
+}
+
 function renderCampaignsList(campaigns) {
   if (!campaignsListDiv) return;
   if (campaigns.length === 0) {
@@ -78,7 +86,6 @@ function renderCampaignsList(campaigns) {
   });
   html += '</div>';
   campaignsListDiv.innerHTML = html;
-  // Gắn sự kiện
   document.querySelectorAll('.view-campaign-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -93,7 +100,17 @@ function renderCampaignsList(campaigns) {
   });
 }
 
-// Hiển thị chi tiết campaign (đóng góp)
+async function sendDiscordNotification(webhookUrl, content) {
+  if (!webhookUrl) return;
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content })
+    });
+  } catch (e) { console.error(e); }
+}
+
 async function showCampaignDetail(campaignId) {
   const doc = await db.collection('campaigns').doc(campaignId).get();
   if (!doc.exists) return showToast('Không tìm thấy campaign', true);
@@ -105,14 +122,13 @@ async function showCampaignDetail(campaignId) {
   const target = camp.target || 0;
   const percent = target > 0 ? (currentTotal / target) * 100 : 0;
   const isUnlocked = currentTotal >= target;
-
   let unlockHtml = '';
   if (isUnlocked) {
     unlockHtml = `<a href="${camp.downloadLink || '#'}" target="_blank"><button style="background: var(--success); width:100%"><i class="fas fa-download"></i> Tải slide ngay (đã đủ tiến trình)</button></a>`;
   } else {
     unlockHtml = `<div class="alert">🔒 Chưa đủ tiến trình (${currentTotal.toLocaleString()}/${target.toLocaleString()}đ). Hãy đóng góp để mở khóa cho tất cả.</div>`;
   }
-
+  const qrImageUrl = "https://cdn.discordapp.com/attachments/1352301017353425000/1490740479162056885/IMG_3760.jpg?ex=69d527c2&is=69d3d642&hm=6bb9d6c180eac58426a2d9591149176488041a6f065248786d311497582d7e3b";
   const detailHtml = `
     <h2>${escapeHtml(camp.name)}</h2>
     <p>${escapeHtml(camp.description || '')}</p>
@@ -123,12 +139,17 @@ async function showCampaignDetail(campaignId) {
     ${unlockHtml}
     <div class="bank-info-detail">
       <h3><i class="fas fa-university"></i> Chuyển khoản hỗ trợ</h3>
-      <p><strong>Chủ tài khoản:</strong> TRAN THANH HO</p>
-      <p><strong>Ngân hàng:</strong> MB (Military Bank)</p>
-      <p><strong>Số tài khoản:</strong> 6655626666 <button class="copy-btn" data-copy="6655626666"><i class="fas fa-copy"></i></button></p>
+      <p><strong>Chủ tài khoản:</strong> TRẦN THÁI SƠN</p>
+      <p><strong>Ví nhận:</strong> MoMo</p>
+      <p><strong>Số tài khoản / Số điện thoại:</strong> 0915956805 <button class="copy-btn" data-copy="0915956805"><i class="fas fa-copy"></i></button></p>
+      <div class="qr-code">
+        <img src="${qrImageUrl}" alt="QR MoMo" class="qr-code-img" onerror="this.src='https://via.placeholder.com/200?text=QR+MoMo'">
+        <p style="font-size:0.75rem">Quét mã QR để chuyển nhanh</p>
+      </div>
       <p><strong>Mã code cá nhân của bạn:</strong> <span id="userCodeDisplay">${userCode}</span> <button class="copy-btn" data-copy-id="userCodeDisplay"><i class="fas fa-copy"></i></button></p>
       <p><strong>Nội dung chuyển khoản BẮT BUỘC:</strong> <strong style="background:var(--border);padding:0.2rem 0.5rem;border-radius:0.5rem;">${requiredContent}</strong> <button class="copy-btn" data-copy="${requiredContent}"><i class="fas fa-copy"></i></button></p>
-      <div class="alert"><i class="fas fa-info-circle"></i> Sau khi chuyển, admin sẽ xác nhận và cập nhật tiến trình trong vòng 10-20 phút. Cảm ơn bạn!</div>
+      <div class="alert"><i class="fas fa-info-circle"></i> Sau khi chuyển, bấm nút bên dưới để báo admin. Admin sẽ xác nhận và cập nhật tiến trình sớm nhất.</div>
+      <button id="notifyPaidBtn" class="secondary" style="margin-top:0.5rem; width:100%"><i class="fas fa-bell"></i> Tôi đã chuyển khoản, xác nhận giúp</button>
     </div>
     <div class="flex">
       <button id="refreshCampaignBtn" class="secondary"><i class="fas fa-sync-alt"></i> Kiểm tra tiến trình mới</button>
@@ -138,7 +159,6 @@ async function showCampaignDetail(campaignId) {
   campaignDetailCard.innerHTML = detailHtml;
   homeView.style.display = 'none';
   campaignDetailView.style.display = 'block';
-  // Gắn sự kiện copy
   document.querySelectorAll('.copy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       let text = btn.getAttribute('data-copy');
@@ -152,6 +172,28 @@ async function showCampaignDetail(campaignId) {
       }
     });
   });
+  document.getElementById('notifyPaidBtn')?.addEventListener('click', async () => {
+    try {
+      await db.collection('payments').add({
+        campaignId: camp.id,
+        userId: currentUser.uid,
+        email: currentUser.email,
+        amount: 0,
+        paymentCode: userCode,
+        transferContent: requiredContent,
+        status: 'pending',
+        createdAt: new Date(),
+        userNotified: true
+      });
+      showToast('Đã gửi yêu cầu xác nhận! Admin sẽ cập nhật sớm.');
+      const discordUrl = localStorage.getItem('discord_webhook');
+      if (discordUrl) {
+        await sendDiscordNotification(discordUrl, `🚨 Yêu cầu xác nhận thanh toán\nUser: ${currentUser.email}\nCampaign: ${camp.name}\nMã code: ${userCode}\nNội dung: ${requiredContent}`);
+      }
+    } catch (err) {
+      showToast('Lỗi gửi yêu cầu: ' + err.message, true);
+    }
+  });
   document.getElementById('refreshCampaignBtn')?.addEventListener('click', () => showCampaignDetail(camp.id));
   document.getElementById('backHomeFromDetail')?.addEventListener('click', () => {
     homeView.style.display = 'block';
@@ -160,7 +202,6 @@ async function showCampaignDetail(campaignId) {
   });
 }
 
-// Admin: hiển thị danh sách campaign kèm quản lý
 async function renderAdminCampaigns() {
   const snapshot = await db.collection('campaigns').orderBy('createdAt', 'desc').get();
   if (snapshot.empty) {
@@ -183,67 +224,59 @@ async function renderAdminCampaigns() {
     `;
   });
   adminCampaignsList.innerHTML = html;
-  // Gắn sự kiện
-  document.querySelectorAll('.edit-camp-btn').forEach(btn => {
-    btn.addEventListener('click', () => editCampaign(btn.getAttribute('data-id')));
-  });
-  document.querySelectorAll('.reset-camp-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (confirm('Reset tiến trình về 0?')) {
-        await db.collection('campaigns').doc(btn.getAttribute('data-id')).update({ currentTotal: 0 });
-        showToast('Đã reset');
-        renderAdminCampaigns();
-        loadCampaigns();
-      }
-    });
-  });
-  document.querySelectorAll('.delete-camp-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (confirm('Xóa campaign này? Mọi giao dịch liên quan vẫn còn nhưng không hiển thị nữa.')) {
-        await db.collection('campaigns').doc(btn.getAttribute('data-id')).delete();
-        showToast('Đã xóa');
-        renderAdminCampaigns();
-        loadCampaigns();
-      }
-    });
-  });
-  document.querySelectorAll('.view-pending-btn').forEach(btn => {
-    btn.addEventListener('click', () => showPendingPayments(btn.getAttribute('data-id')));
-  });
+  document.querySelectorAll('.edit-camp-btn').forEach(btn => btn.addEventListener('click', () => editCampaign(btn.getAttribute('data-id'))));
+  document.querySelectorAll('.reset-camp-btn').forEach(btn => btn.addEventListener('click', async () => {
+    if (confirm('Reset tiến trình về 0?')) {
+      await db.collection('campaigns').doc(btn.getAttribute('data-id')).update({ currentTotal: 0 });
+      showToast('Đã reset');
+      renderAdminCampaigns();
+      loadCampaigns();
+    }
+  }));
+  document.querySelectorAll('.delete-camp-btn').forEach(btn => btn.addEventListener('click', async () => {
+    if (confirm('Xóa campaign này?')) {
+      await db.collection('campaigns').doc(btn.getAttribute('data-id')).delete();
+      showToast('Đã xóa');
+      renderAdminCampaigns();
+      loadCampaigns();
+    }
+  }));
+  document.querySelectorAll('.view-pending-btn').forEach(btn => btn.addEventListener('click', () => showPendingPayments(btn.getAttribute('data-id'))));
 }
 
-// Xem giao dịch pending của một campaign (admin)
 async function showPendingPayments(campaignId) {
   const pendingSnap = await db.collection('payments').where('campaignId', '==', campaignId).where('status', '==', 'pending').orderBy('createdAt', 'desc').get();
   if (pendingSnap.empty) {
     alert('Không có giao dịch chờ xác nhận cho campaign này.');
     return;
   }
-  let msg = 'Danh sách giao dịch chờ:\n';
+  let msg = 'Danh sách giao dịch chờ (bấm OK để xác nhận TẤT CẢ, Cancel để từ chối):\n';
   pendingSnap.forEach(doc => {
     const p = doc.data();
-    msg += `- ${p.email} | ${p.amount?.toLocaleString()}đ | Mã: ${p.paymentCode} | ND: ${p.transferContent}\n`;
+    msg += `- ${p.email} | Số tiền: ${p.amount ? p.amount.toLocaleString() : '?'}đ | Mã: ${p.paymentCode} | ND: ${p.transferContent}\n`;
   });
-  const action = confirm(msg + '\n\nBấm OK để xác nhận TẤT CẢ giao dịch này? (Bạn nên xác nhận từng cái thủ công hơn, nhưng đơn giản hóa)');
+  const action = confirm(msg + '\n\nBấm OK để xác nhận tất cả (bạn sẽ nhập số tiền cho từng giao dịch).');
   if (action) {
     for (const doc of pendingSnap.docs) {
       const p = doc.data();
-      await db.collection('payments').doc(doc.id).update({ status: 'confirmed', confirmedAt: new Date() });
+      let amount = p.amount;
+      if (!amount || amount === 0) {
+        amount = parseInt(prompt(`Nhập số tiền user ${p.email} đã chuyển:`, '0'));
+        if (isNaN(amount) || amount <= 0) continue;
+      }
+      await db.collection('payments').doc(doc.id).update({ status: 'confirmed', confirmedAt: new Date(), amount: amount });
       const campRef = db.collection('campaigns').doc(campaignId);
       const campDoc = await campRef.get();
       const current = campDoc.exists ? campDoc.data().currentTotal || 0 : 0;
-      await campRef.update({ currentTotal: current + p.amount });
+      await campRef.update({ currentTotal: current + amount });
+      showToast(`Đã xác nhận +${amount.toLocaleString()}đ từ ${p.email}`);
     }
-    showToast('Đã xác nhận tất cả giao dịch và cập nhật tiến trình');
     renderAdminCampaigns();
     loadCampaigns();
-    if (currentViewingCampaign && currentViewingCampaign.id === campaignId) {
-      showCampaignDetail(campaignId);
-    }
+    if (currentViewingCampaign && currentViewingCampaign.id === campaignId) showCampaignDetail(campaignId);
   }
 }
 
-// Sửa campaign (admin)
 async function editCampaign(campId) {
   const doc = await db.collection('campaigns').doc(campId).get();
   if (!doc.exists) return;
@@ -262,20 +295,16 @@ async function editCampaign(campId) {
   if (currentViewingCampaign && currentViewingCampaign.id === campId) showCampaignDetail(campId);
 }
 
-// Load danh sách campaign realtime
 function loadCampaigns() {
   if (campaignsUnsubscribe) campaignsUnsubscribe();
   campaignsUnsubscribe = db.collection('campaigns').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
     const campaigns = [];
     snapshot.forEach(doc => campaigns.push({ id: doc.id, ...doc.data() }));
     renderCampaignsList(campaigns);
-    if (currentViewingCampaign) {
-      showCampaignDetail(currentViewingCampaign.id);
-    }
+    if (currentViewingCampaign) showCampaignDetail(currentViewingCampaign.id);
   });
 }
 
-// Thêm campaign mới (admin)
 async function addNewCampaign(name, desc, target, link) {
   if (!name || target <= 0) return showToast('Tên và mục tiêu hợp lệ', true);
   await db.collection('campaigns').add({
@@ -287,7 +316,6 @@ async function addNewCampaign(name, desc, target, link) {
   loadCampaigns();
 }
 
-// Admin thêm giao dịch thủ công
 function addManualPaymentUI() {
   const adminCard = document.querySelector('#adminPanel .card');
   if (!adminCard || document.getElementById('manualPaymentSection')) return;
@@ -301,13 +329,13 @@ function addManualPaymentUI() {
     <input type="email" id="manualEmail" placeholder="Email người chuyển">
     <input type="number" id="manualAmount" placeholder="Số tiền (VNĐ)">
     <input type="text" id="manualCode" placeholder="Mã code của user (tùy ý)">
-    <select id="manualCampaignId">
-      <option value="">Chọn campaign</option>
-    </select>
-    <button id="manualAddPaymentBtn" class="secondary">Thêm vào danh sách chờ</button>
+    <select id="manualCampaignId"><option value="">Chọn campaign</option></select>
+    <label style="display: flex; align-items: center; gap: 0.5rem;">
+      <input type="checkbox" id="confirmNowCheckbox"> Xác nhận ngay (cộng tiến trình luôn)
+    </label>
+    <button id="manualAddPaymentBtn" class="secondary">Thêm</button>
   `;
   adminCard.appendChild(div);
-  // Load danh sách campaign vào select
   db.collection('campaigns').get().then(snap => {
     const select = document.getElementById('manualCampaignId');
     snap.forEach(doc => {
@@ -322,8 +350,8 @@ function addManualPaymentUI() {
     const amount = parseInt(document.getElementById('manualAmount').value);
     const code = document.getElementById('manualCode').value.trim();
     const campaignId = document.getElementById('manualCampaignId').value;
+    const confirmNow = document.getElementById('confirmNowCheckbox').checked;
     if (!email || isNaN(amount) || amount <= 0 || !campaignId) return showToast('Nhập đủ thông tin', true);
-    // Tìm hoặc tạo user
     let userId = null;
     const userQuery = await db.collection('users').where('email', '==', email).get();
     if (!userQuery.empty) {
@@ -333,54 +361,48 @@ function addManualPaymentUI() {
       await newUserRef.set({ email, paymentCode: code || 'MANUAL_' + Date.now() });
       userId = newUserRef.id;
     }
-    await db.collection('payments').add({
+    const paymentData = {
       campaignId, userId, email, amount, paymentCode: code, transferContent: `NEXUS_${campaignId}_${code}`,
-      status: 'pending', createdAt: new Date()
-    });
-    showToast('Đã thêm giao dịch chờ xác nhận');
+      status: confirmNow ? 'confirmed' : 'pending', createdAt: new Date()
+    };
+    await db.collection('payments').add(paymentData);
+    if (confirmNow) {
+      const campRef = db.collection('campaigns').doc(campaignId);
+      const campDoc = await campRef.get();
+      const current = campDoc.exists ? campDoc.data().currentTotal || 0 : 0;
+      await campRef.update({ currentTotal: current + amount });
+      showToast(`Đã thêm và xác nhận +${amount.toLocaleString()}đ`);
+      loadCampaigns();
+      if (currentViewingCampaign && currentViewingCampaign.id === campaignId) showCampaignDetail(campaignId);
+    } else {
+      showToast('Đã thêm giao dịch chờ xác nhận');
+    }
+    renderAdminCampaigns();
     document.getElementById('manualEmail').value = '';
     document.getElementById('manualAmount').value = '';
     document.getElementById('manualCode').value = '';
   });
 }
 
-// Đăng nhập email/password
-const loginEmail = document.getElementById('loginEmail');
-const loginPassword = document.getElementById('loginPassword');
-
 document.getElementById('loginBtn').onclick = async () => {
-  const email = loginEmail.value.trim();
-  const pwd = loginPassword.value;
+  const email = document.getElementById('loginEmail').value.trim();
+  const pwd = document.getElementById('loginPassword').value;
   if (!email || !pwd) return showToast('Vui lòng nhập email và mật khẩu', true);
   try {
     await auth.signInWithEmailAndPassword(email, pwd);
     showToast('Đăng nhập thành công');
-  } catch (error) {
-    let msg = error.message;
-    if (msg.includes('invalid-email')) msg = 'Email không hợp lệ';
-    else if (msg.includes('user-not-found')) msg = 'Email chưa đăng ký';
-    else if (msg.includes('wrong-password')) msg = 'Sai mật khẩu';
-    showToast(msg, true);
-  }
+  } catch (error) { showToast(error.message, true); }
 };
-
 document.getElementById('registerBtn').onclick = async () => {
-  const email = loginEmail.value.trim();
-  const pwd = loginPassword.value;
+  const email = document.getElementById('loginEmail').value.trim();
+  const pwd = document.getElementById('loginPassword').value;
   if (!email || !pwd) return showToast('Vui lòng nhập email và mật khẩu', true);
   if (pwd.length < 6) return showToast('Mật khẩu phải có ít nhất 6 ký tự', true);
   try {
     await auth.createUserWithEmailAndPassword(email, pwd);
     showToast('Đăng ký thành công! Hãy đăng nhập.');
-  } catch (error) {
-    let msg = error.message;
-    if (msg.includes('invalid-email')) msg = 'Email không hợp lệ';
-    else if (msg.includes('email-already-in-use')) msg = 'Email đã được đăng ký';
-    showToast(msg, true);
-  }
+  } catch (error) { showToast(error.message, true); }
 };
-
-// Đăng nhập Google
 document.getElementById('googleSignInBtn').onclick = async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
@@ -388,19 +410,15 @@ document.getElementById('googleSignInBtn').onclick = async () => {
     const result = await auth.signInWithPopup(provider);
     const user = result.user;
     showToast(`Chào ${user.displayName || user.email}!`);
-    // Tạo mã code cho user mới nếu chưa có
     const userRef = db.collection('users').doc(user.uid);
     const doc = await userRef.get();
     if (!doc.exists) {
       const code = 'NX_' + Math.random().toString(36).substring(2, 10).toUpperCase();
       await userRef.set({ paymentCode: code, email: user.email, name: user.displayName || '' });
     }
-  } catch (error) {
-    console.error(error);
-    showToast('Đăng nhập Google thất bại: ' + error.message, true);
-  }
+    await recordDeviceInfo(user.uid);
+  } catch (error) { showToast('Đăng nhập Google thất bại: ' + error.message, true); }
 };
-
 document.getElementById('logoutBtn').onclick = () => auth.signOut();
 backToHomeBtn.onclick = () => {
   homeView.style.display = 'block';
@@ -410,14 +428,41 @@ backToHomeBtn.onclick = () => {
 showAddCampaignBtn.onclick = () => addCampaignForm.style.display = 'block';
 document.getElementById('cancelAddCampaignBtn').onclick = () => addCampaignForm.style.display = 'none';
 document.getElementById('confirmAddCampaignBtn').onclick = () => {
-  const name = document.getElementById('newCampName').value;
-  const desc = document.getElementById('newCampDesc').value;
-  const target = document.getElementById('newCampTarget').value;
-  const link = document.getElementById('newCampLink').value;
-  addNewCampaign(name, desc, target, link);
+  addNewCampaign(
+    document.getElementById('newCampName').value,
+    document.getElementById('newCampDesc').value,
+    document.getElementById('newCampTarget').value,
+    document.getElementById('newCampLink').value
+  );
 };
 
-// Auth state
+const discordInput = document.getElementById('discordWebhookUrl');
+const saveDiscordBtn = document.getElementById('saveDiscordWebhookBtn');
+const discordStatus = document.getElementById('discordStatus');
+if (saveDiscordBtn) {
+  const savedUrl = localStorage.getItem('discord_webhook');
+  if (savedUrl && discordInput) discordInput.value = savedUrl;
+  saveDiscordBtn.onclick = () => {
+    const url = discordInput.value.trim();
+    if (url) {
+      localStorage.setItem('discord_webhook', url);
+      discordStatus.innerText = 'Đã lưu!';
+      setTimeout(() => discordStatus.innerText = '', 2000);
+    } else {
+      localStorage.removeItem('discord_webhook');
+      discordStatus.innerText = 'Đã xóa';
+      setTimeout(() => discordStatus.innerText = '', 2000);
+    }
+  };
+}
+
+const modal = document.getElementById('helpModal');
+const helpBtn = document.getElementById('helpBtn');
+const closeSpan = document.querySelector('.close');
+helpBtn.onclick = () => modal.style.display = 'block';
+closeSpan.onclick = () => modal.style.display = 'none';
+window.onclick = (event) => { if (event.target == modal) modal.style.display = 'none'; };
+
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   if (user) {
@@ -425,6 +470,7 @@ auth.onAuthStateChanged(async (user) => {
     appContent.style.display = 'block';
     userEmailBadge.innerText = user.email;
     loadCampaigns();
+    await recordDeviceInfo(user.uid);
     if (user.email === 'st163943@gmail.com') {
       adminPanel.style.display = 'block';
       renderAdminCampaigns();
@@ -442,7 +488,6 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
-// Theme
 const themeToggle = document.getElementById('themeToggle');
 const themeText = document.getElementById('themeText');
 function setTheme(theme) {
