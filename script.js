@@ -141,7 +141,7 @@ async function showCampaignDetail(campaignId) {
       <h3><i class="fas fa-university"></i> Chuyển khoản hỗ trợ</h3>
       <p><strong>Chủ tài khoản:</strong> TRẦN THÁI SƠN</p>
       <p><strong>Ví nhận:</strong> MoMo</p>
-      <p><strong>Số tài khoản:</strong> 0915956805 <button class="copy-btn" data-copy="0915956805"><i class="fas fa-copy"></i></button></p>
+      <p><strong>Số tài khoản / Số điện thoại:</strong> 0915956805 <button class="copy-btn" data-copy="0915956805"><i class="fas fa-copy"></i></button></p>
       <div class="qr-code">
         <img src="${qrImageUrl}" alt="QR MoMo" class="qr-code-img" onerror="this.src='https://via.placeholder.com/200?text=QR+MoMo'">
         <p style="font-size:0.75rem">Quét mã QR để chuyển nhanh</p>
