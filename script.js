@@ -128,7 +128,7 @@ async function showCampaignDetail(campaignId) {
   } else {
     unlockHtml = `<div class="alert">🔒 Chưa đủ tiến trình (${currentTotal.toLocaleString()}/${target.toLocaleString()}đ). Hãy đóng góp để mở khóa cho tất cả.</div>`;
   }
-  const qrImageUrl = "https://cdn.discordapp.com/attachments/1352301017353425000/1490740479162056885/IMG_3760.jpg?ex=69d527c2&is=69d3d642&hm=6bb9d6c180eac58426a2d9591149176488041a6f065248786d311497582d7e3b";
+  const qrImageUrl = "https://cdn.discordapp.com/attachments/1352301017353425000/1490752307124633812/IMG_3760.jpg?ex=69d532c6&is=69d3e146&hm=a74780007dd900cbf6cb76e271a9f66f56c07739991e3913028113ad767cb809";
   const detailHtml = `
     <h2>${escapeHtml(camp.name)}</h2>
     <p>${escapeHtml(camp.description || '')}</p>
@@ -141,7 +141,7 @@ async function showCampaignDetail(campaignId) {
       <h3><i class="fas fa-university"></i> Chuyển khoản hỗ trợ</h3>
       <p><strong>Chủ tài khoản:</strong> TRẦN THÁI SƠN</p>
       <p><strong>Ví nhận:</strong> MoMo</p>
-      <p><strong>Số tài khoản / Số điện thoại:</strong> 0915956805 <button class="copy-btn" data-copy="0915956805"><i class="fas fa-copy"></i></button></p>
+      <p><strong>Số tài khoản:</strong> 0915956805 <button class="copy-btn" data-copy="0915956805"><i class="fas fa-copy"></i></button></p>
       <div class="qr-code">
         <img src="${qrImageUrl}" alt="QR MoMo" class="qr-code-img" onerror="this.src='https://via.placeholder.com/200?text=QR+MoMo'">
         <p style="font-size:0.75rem">Quét mã QR để chuyển nhanh</p>
