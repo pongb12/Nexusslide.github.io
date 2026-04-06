@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Nexus Project · Pongb/Wrongb </title>
+  <title>Nexus Shop · Chung tay mua slide thuyết trình</title>
   <link rel="stylesheet" href="style.css">
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -16,15 +16,15 @@
 <div class="container">
   <div class="header">
     <div class="logo">
-      <h1><i class="fas fa-store"></i> Nexus Project</h1>
-      <p>Pay for slides</p>
+      <h1><i class="fas fa-store"></i> Nexus Shop</h1>
+      <p>Chung tay mua slide thuyết trình chất lượng</p>
     </div>
     <div class="theme-toggle" id="themeToggle">
       <i class="fas fa-sun"></i>/<i class="fas fa-moon"></i> <span id="themeText">Sáng</span>
     </div>
   </div>
 
-  <!-- Đăng nhập -->
+  <!-- Đăng nhập / Đăng ký -->
   <div id="loginCard" class="card">
     <h2><i class="fas fa-sign-in-alt"></i> Đăng nhập / Đăng ký</h2>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
@@ -33,6 +33,13 @@
       <button id="loginBtn"><i class="fas fa-key"></i> Đăng nhập</button>
       <button id="registerBtn" class="secondary"><i class="fas fa-user-plus"></i> Đăng ký</button>
     </div>
+    <div style="text-align: center; margin: 1rem 0; position: relative;">
+      <hr style="border: none; border-top: 1px solid var(--border);">
+      <span style="position: relative; top: -0.7rem; background: var(--surface); padding: 0 1rem; color: var(--text-secondary);">Hoặc</span>
+    </div>
+    <button id="googleSignInBtn" style="background: #db4437; width: 100%;">
+      <i class="fab fa-google"></i> Đăng nhập bằng Google
+    </button>
   </div>
 
   <!-- Nội dung chính sau login -->
@@ -79,7 +86,7 @@
     <button id="logoutBtn" class="secondary" style="width: 100%; margin-top: 1rem;"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
   </div>
 
-  <!-- Footer quảng cáo (bạn có thể thay bằng Google AdSense) -->
+  <!-- Footer quảng cáo -->
   <div class="footer-ads">
     <p><i class="fas fa-ad"></i> Quảng cáo của bạn ở đây — <a href="#">Liên hệ đặt banner</a></p>
   </div>

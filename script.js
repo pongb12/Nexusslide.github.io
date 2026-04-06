@@ -1,4 +1,4 @@
-// script.js - Nexus Shop Multi-Campaign
+// script.js - Nexus Shop Multi-Campaign với Google Sign-in
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -287,7 +287,7 @@ async function addNewCampaign(name, desc, target, link) {
   loadCampaigns();
 }
 
-// Admin thêm giao dịch thủ công (khi user chuyển khoản, admin tạo pending)
+// Admin thêm giao dịch thủ công
 function addManualPaymentUI() {
   const adminCard = document.querySelector('#adminPanel .card');
   if (!adminCard || document.getElementById('manualPaymentSection')) return;
@@ -318,9 +318,9 @@ function addManualPaymentUI() {
     });
   });
   document.getElementById('manualAddPaymentBtn').addEventListener('click', async () => {
-    const email = document.getElementById('manualEmail').value;
+    const email = document.getElementById('manualEmail').value.trim();
     const amount = parseInt(document.getElementById('manualAmount').value);
-    const code = document.getElementById('manualCode').value;
+    const code = document.getElementById('manualCode').value.trim();
     const campaignId = document.getElementById('manualCampaignId').value;
     if (!email || isNaN(amount) || amount <= 0 || !campaignId) return showToast('Nhập đủ thông tin', true);
     // Tìm hoặc tạo user
@@ -343,6 +343,79 @@ function addManualPaymentUI() {
     document.getElementById('manualCode').value = '';
   });
 }
+
+// Đăng nhập email/password
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+
+document.getElementById('loginBtn').onclick = async () => {
+  const email = loginEmail.value.trim();
+  const pwd = loginPassword.value;
+  if (!email || !pwd) return showToast('Vui lòng nhập email và mật khẩu', true);
+  try {
+    await auth.signInWithEmailAndPassword(email, pwd);
+    showToast('Đăng nhập thành công');
+  } catch (error) {
+    let msg = error.message;
+    if (msg.includes('invalid-email')) msg = 'Email không hợp lệ';
+    else if (msg.includes('user-not-found')) msg = 'Email chưa đăng ký';
+    else if (msg.includes('wrong-password')) msg = 'Sai mật khẩu';
+    showToast(msg, true);
+  }
+};
+
+document.getElementById('registerBtn').onclick = async () => {
+  const email = loginEmail.value.trim();
+  const pwd = loginPassword.value;
+  if (!email || !pwd) return showToast('Vui lòng nhập email và mật khẩu', true);
+  if (pwd.length < 6) return showToast('Mật khẩu phải có ít nhất 6 ký tự', true);
+  try {
+    await auth.createUserWithEmailAndPassword(email, pwd);
+    showToast('Đăng ký thành công! Hãy đăng nhập.');
+  } catch (error) {
+    let msg = error.message;
+    if (msg.includes('invalid-email')) msg = 'Email không hợp lệ';
+    else if (msg.includes('email-already-in-use')) msg = 'Email đã được đăng ký';
+    showToast(msg, true);
+  }
+};
+
+// Đăng nhập Google
+document.getElementById('googleSignInBtn').onclick = async () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    const result = await auth.signInWithPopup(provider);
+    const user = result.user;
+    showToast(`Chào ${user.displayName || user.email}!`);
+    // Tạo mã code cho user mới nếu chưa có
+    const userRef = db.collection('users').doc(user.uid);
+    const doc = await userRef.get();
+    if (!doc.exists) {
+      const code = 'NX_' + Math.random().toString(36).substring(2, 10).toUpperCase();
+      await userRef.set({ paymentCode: code, email: user.email, name: user.displayName || '' });
+    }
+  } catch (error) {
+    console.error(error);
+    showToast('Đăng nhập Google thất bại: ' + error.message, true);
+  }
+};
+
+document.getElementById('logoutBtn').onclick = () => auth.signOut();
+backToHomeBtn.onclick = () => {
+  homeView.style.display = 'block';
+  campaignDetailView.style.display = 'none';
+  currentViewingCampaign = null;
+};
+showAddCampaignBtn.onclick = () => addCampaignForm.style.display = 'block';
+document.getElementById('cancelAddCampaignBtn').onclick = () => addCampaignForm.style.display = 'none';
+document.getElementById('confirmAddCampaignBtn').onclick = () => {
+  const name = document.getElementById('newCampName').value;
+  const desc = document.getElementById('newCampDesc').value;
+  const target = document.getElementById('newCampTarget').value;
+  const link = document.getElementById('newCampLink').value;
+  addNewCampaign(name, desc, target, link);
+};
 
 // Auth state
 auth.onAuthStateChanged(async (user) => {
@@ -368,33 +441,6 @@ auth.onAuthStateChanged(async (user) => {
     if (campaignsUnsubscribe) campaignsUnsubscribe();
   }
 });
-
-// Event listeners
-document.getElementById('loginBtn').onclick = () => {
-  const email = document.getElementById('loginEmail').value;
-  const pwd = document.getElementById('loginPassword').value;
-  auth.signInWithEmailAndPassword(email, pwd).catch(e => showToast(e.message, true));
-};
-document.getElementById('registerBtn').onclick = () => {
-  const email = document.getElementById('loginEmail').value;
-  const pwd = document.getElementById('loginPassword').value;
-  auth.createUserWithEmailAndPassword(email, pwd).then(() => showToast('Đăng ký thành công, hãy đăng nhập')).catch(e => showToast(e.message, true));
-};
-document.getElementById('logoutBtn').onclick = () => auth.signOut();
-backToHomeBtn.onclick = () => {
-  homeView.style.display = 'block';
-  campaignDetailView.style.display = 'none';
-  currentViewingCampaign = null;
-};
-showAddCampaignBtn.onclick = () => addCampaignForm.style.display = 'block';
-document.getElementById('cancelAddCampaignBtn').onclick = () => addCampaignForm.style.display = 'none';
-document.getElementById('confirmAddCampaignBtn').onclick = () => {
-  const name = document.getElementById('newCampName').value;
-  const desc = document.getElementById('newCampDesc').value;
-  const target = document.getElementById('newCampTarget').value;
-  const link = document.getElementById('newCampLink').value;
-  addNewCampaign(name, desc, target, link);
-};
 
 // Theme
 const themeToggle = document.getElementById('themeToggle');
