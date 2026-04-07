@@ -43,7 +43,6 @@ body {
   margin: 0 auto;
 }
 
-/* Header */
 .header {
   display: flex;
   justify-content: space-between;
@@ -103,7 +102,6 @@ body {
   box-shadow: var(--card-shadow);
 }
 
-/* Card */
 .card {
   background: var(--surface);
   border-radius: 1.5rem;
@@ -125,7 +123,6 @@ body {
   }
 }
 
-/* Login card */
 .login-icon {
   text-align: center;
   margin-bottom: 1rem;
@@ -145,7 +142,6 @@ body {
   transform: translateY(-2px);
 }
 
-/* Campaign grid */
 .campaigns-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -174,7 +170,7 @@ body {
   font-size: 0.85rem;
   margin-bottom: 1rem;
   display: -webkit-box;
-  line-clamp: 2;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -200,7 +196,6 @@ body {
   margin-top: 0.5rem;
 }
 
-/* Progress detail */
 .progress-section {
   margin: 1rem 0;
 }
@@ -223,7 +218,6 @@ body {
   transition: width 0.5s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 }
 
-/* Buttons */
 button {
   background: var(--primary);
   border: none;
@@ -258,7 +252,6 @@ button.danger {
   margin-top: 1rem;
 }
 
-/* Inputs */
 input, textarea, select {
   width: 100%;
   padding: 0.8rem 1rem;
@@ -275,7 +268,6 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
 
-/* Badge */
 .badge {
   background: var(--border);
   padding: 0.3rem 0.8rem;
@@ -284,7 +276,6 @@ input:focus, textarea:focus, select:focus {
   font-weight: 500;
 }
 
-/* Search */
 .search-card {
   background: var(--surface);
 }
@@ -327,7 +318,6 @@ input:focus, textarea:focus, select:focus {
   background: var(--border);
 }
 
-/* Admin */
 .admin-panel {
   margin-top: 1rem;
 }
@@ -347,8 +337,15 @@ input:focus, textarea:focus, select:focus {
   padding: 0.3rem 0.7rem;
   font-size: 0.7rem;
 }
+.admin-panel hr {
+  margin: 1rem 0;
+  border-color: var(--border);
+}
+.admin-panel h4 {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
 
-/* Modal */
 .modal {
   display: none;
   position: fixed;
@@ -393,7 +390,6 @@ input:focus, textarea:focus, select:focus {
   border-bottom: 1px solid var(--border);
 }
 
-/* Skeleton */
 .skeleton-card {
   background: var(--border);
   border-radius: 1.2rem;
@@ -406,7 +402,6 @@ input:focus, textarea:focus, select:focus {
   100% { opacity: 0.6; }
 }
 
-/* Footer */
 .footer-ads {
   text-align: center;
   margin-top: 2rem;
@@ -420,7 +415,6 @@ input:focus, textarea:focus, select:focus {
   opacity: 0.7;
 }
 
-/* Toast */
 .toast {
   position: fixed;
   bottom: 2rem;
@@ -440,11 +434,12 @@ input:focus, textarea:focus, select:focus {
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-/* Responsive */
 @media (max-width: 600px) {
   body { padding: 0.8rem; }
   .card { padding: 1rem; }
   .campaigns-grid { grid-template-columns: 1fr; }
   .logo h1 { font-size: 1.4rem; }
   .toast { max-width: 90%; white-space: normal; text-align: center; }
+  .admin-campaign-item { flex-direction: column; align-items: stretch; }
+  .admin-campaign-actions { justify-content: flex-start; }
 }

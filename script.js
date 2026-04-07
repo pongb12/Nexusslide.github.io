@@ -1,9 +1,7 @@
-// Nexus Shop Ver 1.0.3
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// DOM elements
 const loginCard = document.getElementById('loginCard');
 const appContent = document.getElementById('appContent');
 const homeView = document.getElementById('homeView');
@@ -34,7 +32,6 @@ let discordWebhookUrl = '';
 let currentHwid = '';
 let currentIp = '';
 
-// Helper
 function showToast(msg, isError = false) {
   const toast = document.createElement('div');
   toast.className = 'toast';
@@ -53,7 +50,6 @@ function escapeHtml(str) {
   });
 }
 
-// Lấy HWID và IP
 async function getDeviceInfo() {
   try {
     const fp = await FingerprintJS.load();
@@ -65,7 +61,6 @@ async function getDeviceInfo() {
   } catch (e) { console.error(e); }
 }
 
-// Lưu log (ẩn) vào collection logs (chỉ admin đọc)
 async function addLog(action, details = {}) {
   if (!currentUser) return;
   try {
@@ -81,7 +76,6 @@ async function addLog(action, details = {}) {
   } catch (e) { console.error('Log error:', e); }
 }
 
-// Lấy mã code user
 async function getUserPaymentCode(userId) {
   const userRef = db.collection('users').doc(userId);
   const doc = await userRef.get();
@@ -91,7 +85,6 @@ async function getUserPaymentCode(userId) {
   return code;
 }
 
-// Load Discord webhook từ Firestore (adminConfig)
 async function loadDiscordWebhook() {
   if (!currentUser || currentUser.email !== 'st163943@gmail.com') return;
   const configRef = db.collection('adminConfig').doc('settings');
@@ -111,7 +104,6 @@ async function saveDiscordWebhook(url) {
   addLog('save_discord_webhook', { url });
 }
 
-
 async function sendDiscordNotification(content) {
   if (!discordWebhookUrl) return;
   try {
@@ -123,11 +115,10 @@ async function sendDiscordNotification(content) {
   } catch (e) { console.error(e); }
 }
 
-// Tìm kiếm campaign
 function filterCampaigns(keyword) {
-  if (!keyword.trim()) return allCampaigns;
+  if (!keyword.trim()) return allCampaigns.filter(c => c.status !== 'completed');
   const lower = keyword.toLowerCase();
-  return allCampaigns.filter(c => c.name.toLowerCase().includes(lower) || (c.description && c.description.toLowerCase().includes(lower)));
+  return allCampaigns.filter(c => (c.status !== 'completed') && (c.name.toLowerCase().includes(lower) || (c.description && c.description.toLowerCase().includes(lower))));
 }
 
 function renderSuggestions(keyword) {
@@ -212,7 +203,7 @@ async function showCampaignDetail(campaignId) {
   } else {
     unlockHtml = `<div class="alert"><i class="fas fa-lock"></i> Chưa đủ tiến trình (${currentTotal.toLocaleString()}/${target.toLocaleString()}đ). Hãy đóng góp để mở khóa cho tất cả.</div>`;
   }
-  const qrImageUrl = "https://cdn.discordapp.com/attachments/1352301017353425000/1490752307124633812/IMG_3760.jpg?ex=69d5db86&is=69d48a06&hm=3cab59fa6bb88c924a7686f0a291e14e14545ded1f070a4e8020b48afee9f8cc";
+  const qrImageUrl = "https://cdn.discordapp.com/attachments/1352301017353425000/1490740479162056885/IMG_3760.jpg?ex=69d527c2&is=69d3d642&hm=6bb9d6c180eac58426a2d9591149176488041a6f065248786d311497582d7e3b";
   const detailHtml = `
     <h2><i class="fas fa-chalkboard"></i> ${escapeHtml(camp.name)}</h2>
     <p>${escapeHtml(camp.description || '')}</p>
@@ -258,7 +249,6 @@ async function showCampaignDetail(campaignId) {
   });
   document.getElementById('notifyPaidBtn')?.addEventListener('click', async () => {
     try {
-      
       const response = await fetch(PIPEDREAM_NOTIFY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,17 +281,19 @@ async function showCampaignDetail(campaignId) {
   addLog('view_campaign_detail', { campaignId: camp.id });
 }
 
-
 async function renderAdminCampaigns() {
   const snapshot = await db.collection('campaigns').orderBy('createdAt', 'desc').get();
   if (snapshot.empty) {
     adminCampaignsList.innerHTML = '<p>Chưa có campaign nào.</p>';
     return;
   }
-  let html = '';
+  let activeHtml = '<h4><i class="fas fa-play-circle"></i> Đang hoạt động</h4>';
+  let completedHtml = '<h4><i class="fas fa-check-circle"></i> Đã hoàn thành</h4>';
+  let hasActive = false, hasCompleted = false;
   snapshot.forEach(doc => {
     const c = doc.data();
-    html += `
+    const isCompleted = c.status === 'completed';
+    const itemHtml = `
       <div class="admin-campaign-item" data-id="${doc.id}">
         <div><strong>${escapeHtml(c.name)}</strong><br>🎯 Mục tiêu: ${c.target?.toLocaleString()}đ | 💰 Hiện tại: ${c.currentTotal?.toLocaleString()}đ</div>
         <div class="admin-campaign-actions">
@@ -309,11 +301,21 @@ async function renderAdminCampaigns() {
           <button class="reset-camp-btn" data-id="${doc.id}"><i class="fas fa-undo"></i> Reset</button>
           <button class="delete-camp-btn" data-id="${doc.id}"><i class="fas fa-trash"></i> Xóa</button>
           <button class="view-pending-btn" data-id="${doc.id}"><i class="fas fa-clock"></i> Giao dịch chờ</button>
+          ${!isCompleted ? '<button class="complete-camp-btn" data-id="'+doc.id+'"><i class="fas fa-check-double"></i> Đánh dấu hoàn thành</button>' : '<button class="reactivate-camp-btn" data-id="'+doc.id+'"><i class="fas fa-undo-alt"></i> Kích hoạt lại</button>'}
         </div>
       </div>
     `;
+    if (isCompleted) {
+      completedHtml += itemHtml;
+      hasCompleted = true;
+    } else {
+      activeHtml += itemHtml;
+      hasActive = true;
+    }
   });
-  adminCampaignsList.innerHTML = html;
+  if (!hasActive) activeHtml += '<p>Không có campaign đang hoạt động.</p>';
+  if (!hasCompleted) completedHtml += '<p>Chưa có campaign hoàn thành.</p>';
+  adminCampaignsList.innerHTML = activeHtml + '<hr>' + completedHtml;
   document.querySelectorAll('.edit-camp-btn').forEach(btn => btn.addEventListener('click', () => editCampaign(btn.getAttribute('data-id'))));
   document.querySelectorAll('.reset-camp-btn').forEach(btn => btn.addEventListener('click', async () => {
     if (confirm('Reset tiến trình về 0?')) {
@@ -334,6 +336,24 @@ async function renderAdminCampaigns() {
     }
   }));
   document.querySelectorAll('.view-pending-btn').forEach(btn => btn.addEventListener('click', () => showPendingPayments(btn.getAttribute('data-id'))));
+  document.querySelectorAll('.complete-camp-btn').forEach(btn => btn.addEventListener('click', async () => {
+    if (confirm('Đánh dấu campaign này là đã hoàn thành? Nó sẽ không hiển thị trên trang chủ.')) {
+      await db.collection('campaigns').doc(btn.getAttribute('data-id')).update({ status: 'completed' });
+      showToast('Đã chuyển sang trạng thái hoàn thành');
+      renderAdminCampaigns();
+      loadCampaigns();
+      addLog('complete_campaign', { campaignId: btn.getAttribute('data-id') });
+    }
+  }));
+  document.querySelectorAll('.reactivate-camp-btn').forEach(btn => btn.addEventListener('click', async () => {
+    if (confirm('Kích hoạt lại campaign này? Nó sẽ xuất hiện trên trang chủ.')) {
+      await db.collection('campaigns').doc(btn.getAttribute('data-id')).update({ status: 'active' });
+      showToast('Đã kích hoạt lại');
+      renderAdminCampaigns();
+      loadCampaigns();
+      addLog('reactivate_campaign', { campaignId: btn.getAttribute('data-id') });
+    }
+  }));
 }
 
 async function showPendingPayments(campaignId) {
@@ -396,7 +416,6 @@ function loadCampaigns() {
     const filtered = filterCampaigns(keyword);
     renderCampaignsList(filtered);
     if (currentViewingCampaign) showCampaignDetail(currentViewingCampaign.id);
-    // Ẩn skeleton
     const skeleton = document.querySelector('.skeleton-card');
     if (skeleton) skeleton.remove();
   });
@@ -405,7 +424,7 @@ function loadCampaigns() {
 async function addNewCampaign(name, desc, target, link) {
   if (!name || target <= 0) return showToast('Tên và mục tiêu hợp lệ', true);
   await db.collection('campaigns').add({
-    name, description: desc, target: parseInt(target), currentTotal: 0, downloadLink: link, createdAt: new Date()
+    name, description: desc, target: parseInt(target), currentTotal: 0, downloadLink: link, createdAt: new Date(), status: 'active'
   });
   showToast('✅ Đã thêm campaign');
   addCampaignForm.style.display = 'none';
@@ -413,7 +432,6 @@ async function addNewCampaign(name, desc, target, link) {
   loadCampaigns();
   addLog('add_campaign', { name, target });
 }
-
 
 function addManualPaymentUI() {
   const adminCard = document.querySelector('#adminPanel .card');
@@ -479,7 +497,6 @@ function addManualPaymentUI() {
   });
 }
 
-// Google Sign-in
 document.getElementById('googleSignInBtn').onclick = async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
@@ -519,7 +536,6 @@ document.getElementById('confirmAddCampaignBtn').onclick = () => {
   );
 };
 
-
 const discordInput = document.getElementById('discordWebhookUrl');
 const saveDiscordBtn = document.getElementById('saveDiscordWebhookBtn');
 const discordStatus = document.getElementById('discordStatus');
@@ -532,7 +548,6 @@ if (saveDiscordBtn) {
   };
 }
 
-// Tìm kiếm
 searchInput.addEventListener('input', (e) => {
   const keyword = e.target.value;
   renderSuggestions(keyword);
@@ -542,7 +557,7 @@ searchInput.addEventListener('input', (e) => {
 clearSearchBtn.addEventListener('click', () => {
   searchInput.value = '';
   renderSuggestions('');
-  renderCampaignsList(allCampaigns);
+  renderCampaignsList(allCampaigns.filter(c => c.status !== 'completed'));
 });
 document.addEventListener('click', (e) => {
   if (!searchSuggestions.contains(e.target) && e.target !== searchInput) {
@@ -550,12 +565,10 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Modal help
 helpBtn.onclick = () => modal.style.display = 'block';
 document.querySelector('.close').onclick = () => modal.style.display = 'none';
 window.onclick = (event) => { if (event.target == modal) modal.style.display = 'none'; };
 
-// Modal device info
 showDeviceInfoBtn.onclick = () => {
   displayHwid.innerText = currentHwid || 'Chưa xác định';
   displayIp.innerText = currentIp || 'Chưa xác định';
@@ -564,7 +577,6 @@ showDeviceInfoBtn.onclick = () => {
 document.querySelector('.close-device').onclick = () => deviceModal.style.display = 'none';
 window.onclick = (event) => { if (event.target == deviceModal) deviceModal.style.display = 'none'; };
 
-// Auth state
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   if (user) {
@@ -591,7 +603,6 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
-// Theme
 const themeToggle = document.getElementById('themeToggle');
 const themeText = document.getElementById('themeText');
 function setTheme(theme) {
